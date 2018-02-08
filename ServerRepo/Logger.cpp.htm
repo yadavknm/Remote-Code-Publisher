@@ -1,0 +1,129 @@
+<!-- Published Wed Feb  7 23:43:56 2018
+Yadav Murthy, CSE687 - Object Oriented Design, Spring 2017--><!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" href="../styles.css">
+<script src = "../HideUnhide.js"></script></head>
+<body>
+<h3>Logger.cpp</h3><hr /><div class="indent"><h4>Dependencies:</h4><a href="Logger.cpp.htm"><label>Logger.cpp</label></a>
+<a href="Logger.h.htm"><label>Logger.h</label></a>
+</div><hr /><pre>
+/////////////////////////////////////////////////////////////////////
+// Logger.cpp - log text messages to std::ostream                  //
+// ver 1.0                                                         //
+//-----------------------------------------------------------------//
+// Jim Fawcett (c) copyright 2015                                  //
+// All rights granted provided this copyright notice is retained   //
+//-----------------------------------------------------------------//
+// Language:    C++, Visual Studio 2015                            //
+// Application: Several Projects, CSE687 - Object Oriented Design  //
+// Author:      Jim Fawcett, Syracuse University, CST 4-187        //
+//              jfawcett@twcny.rr.com                              //
+/////////////////////////////////////////////////////////////////////
+
+#include &lt;functional&gt;
+#include &quot;Logger.h&quot;
+#include &quot;../Utilities/Utilities.h&quot;
+
+//----&lt; send text message to std::ostream &gt;--------------------------
+
+void Logger::write(const std::string&amp; msg)
+<button id="Button" onClick="hideUnhideScope('1')">-</button>{<div id="1">
+  if(_ThreadRunning)
+    _queue.enQ(msg);
+</div>}
+void Logger::title(const std::string&amp; msg, char underline)
+<button id="Button" onClick="hideUnhideScope('2')">-</button>{<div id="2">
+  std::string temp = &quot;\n  &quot; + msg + &quot;\n &quot; + std::string(msg.size() + 2, underline);
+  write(temp);
+</div>}
+//----&lt; attach logger to existing std::ostream &gt;---------------------
+
+void Logger::attach(std::ostream* pOut) 
+<button id="Button" onClick="hideUnhideScope('3')">-</button>{<div id="3"> 
+  _pOut = pOut; 
+</div>}
+//----&lt; start logging &gt;----------------------------------------------
+
+void Logger::start()
+<button id="Button" onClick="hideUnhideScope('4')">-</button>{<div id="4">
+  if (_ThreadRunning)
+    return;
+  _ThreadRunning = true;
+  std::function&lt;void()&gt; tp = [=]() <button id="Button" onClick="hideUnhideScope('5')">-</button>{<div id="5">
+    while (true)
+    <button id="Button" onClick="hideUnhideScope('6')">-</button>{<div id="6">
+      std::string msg = _queue.deQ();
+      if (msg == &quot;quit&quot;)
+      <button id="Button" onClick="hideUnhideScope('7')">-</button>{<div id="7">
+        _ThreadRunning = false;
+        break;
+      </div>}
+      *_pOut &lt;&lt; msg;
+    </div>}
+  </div>};
+  std::thread thr(tp);
+  thr.detach();
+</div>}
+//----&lt; stop logging &gt;-----------------------------------------------
+
+void Logger::stop(const std::string&amp; msg)
+<button id="Button" onClick="hideUnhideScope('8')">-</button>{<div id="8">
+  if (_ThreadRunning)
+  <button id="Button" onClick="hideUnhideScope('9')">-</button>{<div id="9">
+    if(msg != &quot;&quot;)
+      write(msg);
+    write(&quot;quit&quot;);  // request thread to stop
+    while (_ThreadRunning)
+      /* wait for thread to stop*/
+      ;
+  </div>}
+</div>}
+//----&lt; stop logging thread &gt;----------------------------------------
+
+Logger::~Logger()
+<button id="Button" onClick="hideUnhideScope('10')">-</button>{<div id="10">
+  stop(); 
+</div>}
+
+struct Cosmetic
+<button id="Button" onClick="hideUnhideScope('11')">-</button>{<div id="11">
+  ~Cosmetic() <button id="Button" onClick="hideUnhideScope('12')">-</button>{<div id="12"> std::cout &lt;&lt; &quot;\n\n&quot;; </div>}
+</div>} cosmetic;
+
+#ifdef TEST_LOGGER
+
+using Util = Utilities::StringHelper;
+
+int main()
+<button id="Button" onClick="hideUnhideScope('13')">-</button>{<div id="13">
+  //Util::Title(&quot;Testing Logger Class&quot;);
+  Logger log;
+  log.attach(&amp;std::cout);
+  log.write(&quot;\n  won&apos;t get logged - not started yet&quot;);
+  log.start();
+  log.title(&quot;Testing Logger Class&quot;, &apos;=&apos;);
+  log.write(&quot;\n  one&quot;);
+  log.write(&quot;\n  two&quot;);
+  log.write(&quot;\n  fini&quot;);
+  log.stop();
+  log.write(&quot;\n  won&apos;t get logged - stopped&quot;);
+  log.start();
+  log.write(&quot;\n  starting again&quot;);
+  log.write(&quot;\n  and stopping again&quot;);
+  log.stop(&quot;\n  terminating now&quot;);
+
+  StaticLogger&lt;1&gt;::attach(&amp;std::cout);
+  StaticLogger&lt;1&gt;::start();
+  StaticLogger&lt;1&gt;::write(&quot;\n&quot;);
+  StaticLogger&lt;1&gt;::title(&quot;Testing StaticLogger class&quot;);
+  StaticLogger&lt;1&gt;::write(&quot;\n  static logger at work&quot;);
+  Logger&amp; logger = StaticLogger&lt;1&gt;::instance();
+  logger.write(&quot;\n  static logger still at work&quot;);
+  logger.stop(&quot;\n  stopping static logger&quot;);
+</div>}
+
+#endif
+</pre>
+</body>
+</html>

@@ -1,0 +1,816 @@
+<!-- Published Wed Feb  7 23:43:56 2018
+Yadav Murthy, CSE687 - Object Oriented Design, Spring 2017--><!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" href="../styles.css">
+<script src = "../HideUnhide.js"></script></head>
+<body>
+<h3>Sockets.cpp</h3><hr /><div class="indent"><h4>Dependencies:</h4><a href="Logger.h.htm"><label>Logger.h</label></a>
+<a href="Sockets.cpp.htm"><label>Sockets.cpp</label></a>
+<a href="Sockets.h.htm"><label>Sockets.h</label></a>
+</div><hr /><pre>
+/////////////////////////////////////////////////////////////////////////
+// Sockets.cpp - C++ wrapper for Win32 socket api                      //
+// ver 5.1                                                             //
+// Jim Fawcett, CSE687 - Object Oriented Design, Spring 2016           //
+// CST 4-187, Syracuse University, 315 443-3948, jfawcett@twcny.rr.com //
+//---------------------------------------------------------------------//
+// Jim Fawcett (c) copyright 2015                                      //
+// All rights granted provided this copyright notice is retained       //
+//---------------------------------------------------------------------//
+// Application: OOD Project #4                                         //
+// Platform:    Visual Studio 2015, Dell XPS 8900, Windows 10 pro      //
+/////////////////////////////////////////////////////////////////////////
+
+#include &quot;Sockets.h&quot;
+#include &lt;iostream&gt;
+#include &lt;sstream&gt;
+#include &lt;thread&gt;
+#include &lt;memory&gt;
+#include &lt;functional&gt;
+#include &lt;exception&gt;
+#include &quot;../Utilities/Utilities.h&quot;
+
+using Util = Utilities::StringHelper;
+template&lt;typename T&gt;
+using Conv = Utilities::Converter&lt;T&gt;;
+using Show = StaticLogger&lt;1&gt;;
+
+/////////////////////////////////////////////////////////////////////////////
+// SocketSystem class members
+
+//----&lt; constructor starts up sockets by loading winsock lib &gt;---------------
+
+SocketSystem::SocketSystem()
+<button id="Button" onClick="hideUnhideScope('14')">-</button>{<div id="14">
+  int iResult = WSAStartup(MAKEWORD(2, 2), &amp;wsaData);
+  if (iResult != 0) <button id="Button" onClick="hideUnhideScope('15')">-</button>{<div id="15">
+    Show::write(&quot;\n  WSAStartup failed with error = &quot; + Conv&lt;int&gt;::toString(iResult));
+  </div>}
+</div>}
+//-----&lt; destructor frees winsock lib &gt;--------------------------------------
+
+SocketSystem::~SocketSystem()
+<button id="Button" onClick="hideUnhideScope('16')">-</button>{<div id="16">
+  int error = WSACleanup();
+  Show::write(&quot;\n  Socket System cleaning up&quot;);
+</div>}
+
+/////////////////////////////////////////////////////////////////////////////
+// Socket class members
+
+//----&lt; constructor sets TCP protocol and Stream mode &gt;----------------------
+
+Socket::Socket(IpVer ipver) : ipver_(ipver)
+<button id="Button" onClick="hideUnhideScope('17')">-</button>{<div id="17">
+  ZeroMemory(&amp;hints, sizeof(hints));
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_protocol = IPPROTO_TCP;
+</div>}
+//----&lt; promotes Win32 socket to Socket &gt;------------------------------------
+/*
+*  You have to set ip version if you want IP6 after promotion, e.g.:
+*     s.ipVer() = IP6;
+*/
+Socket::Socket(::SOCKET sock) : socket_(sock)
+<button id="Button" onClick="hideUnhideScope('18')">-</button>{<div id="18">
+  ipver_ = IP4;
+  ZeroMemory(&amp;hints, sizeof(hints));
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_protocol = IPPROTO_TCP;
+</div>}
+//----&lt; transfer socket ownership with move constructor &gt;--------------------
+
+Socket::Socket(Socket&amp;&amp; s)
+<button id="Button" onClick="hideUnhideScope('19')">-</button>{<div id="19">
+  socket_ = s.socket_;
+  s.socket_ = INVALID_SOCKET;
+  ipver_ = s.ipver_;
+  ZeroMemory(&amp;hints, sizeof(hints));
+  hints.ai_family = s.hints.ai_family;
+  hints.ai_socktype = s.hints.ai_socktype;
+  hints.ai_protocol = s.hints.ai_protocol;
+</div>}
+//----&lt; transfer socket ownership with move assignment &gt;---------------------
+
+Socket&amp; Socket::operator=(Socket&amp;&amp; s)
+<button id="Button" onClick="hideUnhideScope('20')">-</button>{<div id="20">
+  if (this == &amp;s) return *this;
+  socket_ = s.socket_;
+  s.socket_ = INVALID_SOCKET;
+  ipver_ = s.ipver_;
+  hints.ai_family = s.hints.ai_family;
+  hints.ai_socktype = s.hints.ai_socktype;
+  hints.ai_protocol = s.hints.ai_protocol;
+  return *this;
+</div>}
+//----&lt; get, set IP version &gt;------------------------------------------------
+/*
+*  Note: 
+*    Only instances of SocketListener are influenced by ipVer().
+*    Clients will use whatever protocol the server supports.
+*/
+Socket::IpVer&amp; Socket::ipVer()
+<button id="Button" onClick="hideUnhideScope('21')">-</button>{<div id="21">
+  return ipver_;
+</div>}
+//----&lt; close connection &gt;---------------------------------------------------
+
+void Socket::close()
+<button id="Button" onClick="hideUnhideScope('22')">-</button>{<div id="22">
+  if (socket_ != INVALID_SOCKET)
+    ::closesocket(socket_);
+</div>}
+//----&lt; tells receiver there will be no more sends from this socket &gt;--------
+
+bool Socket::shutDownSend()
+<button id="Button" onClick="hideUnhideScope('23')">-</button>{<div id="23">
+  ::shutdown(socket_, SD_SEND);
+  if (socket_ != INVALID_SOCKET)
+    return true;
+  return false;
+</div>}
+
+//----&lt; tells receiver this socket won&apos;t call receive anymore &gt;--------------
+
+bool Socket::shutDownRecv()
+<button id="Button" onClick="hideUnhideScope('24')">-</button>{<div id="24">
+  ::shutdown(socket_, SD_RECEIVE);
+  if (socket_ != INVALID_SOCKET)
+    return true;
+  return false;
+</div>}
+//----&lt; tells receiver there will be no more sends or recvs &gt;----------------
+
+bool Socket::shutDown()
+<button id="Button" onClick="hideUnhideScope('25')">-</button>{<div id="25">
+  ::shutdown(socket_, SD_BOTH);
+  if (socket_ != INVALID_SOCKET)
+    return true;
+  return false;
+
+</div>}
+//----&lt; destructor closes socket handle &gt;------------------------------------
+
+Socket::~Socket() <button id="Button" onClick="hideUnhideScope('26')">-</button>{<div id="26">
+  shutDown();
+  close();
+</div>}
+//----&lt; send buffer &gt;--------------------------------------------------------
+/*
+*  - bytes must be less than or equal to the size of buffer
+*  - doesn&apos;t return until requested number of bytes have been sent
+*/
+bool Socket::send(size_t bytes, byte* buffer)
+<button id="Button" onClick="hideUnhideScope('27')">-</button>{<div id="27">
+  size_t bytesSent = 0, bytesLeft = bytes;
+  byte* pBuf = buffer;
+  while (bytesLeft &gt; 0)
+  <button id="Button" onClick="hideUnhideScope('28')">-</button>{<div id="28">
+    bytesSent = ::send(socket_, pBuf, bytesLeft, 0);
+    if (socket_ == INVALID_SOCKET || bytesSent == 0)
+      return false;
+    bytesLeft -= bytesSent;
+    pBuf += bytesSent;
+  </div>}
+  return true;
+</div>}
+//----&lt; recv buffer &gt;--------------------------------------------------------
+/*
+*  - bytes must be less than or equal to the size of buffer
+*  - doesn&apos;t return until buffer has been filled with requested bytes
+*/
+bool Socket::recv(size_t bytes, byte* buffer)
+<button id="Button" onClick="hideUnhideScope('29')">-</button>{<div id="29">
+  size_t bytesRecvd = 0, bytesLeft = bytes;
+  byte* pBuf = buffer;
+  while (bytesLeft &gt; 0)
+  <button id="Button" onClick="hideUnhideScope('30')">-</button>{<div id="30">
+    bytesRecvd = ::recv(socket_, pBuf, bytesLeft, 0);
+    if (socket_ == INVALID_SOCKET || bytesRecvd == 0)
+      return false;
+    bytesLeft -= bytesRecvd;
+    pBuf += bytesRecvd;
+  </div>}
+  return true;
+</div>}
+//----&lt; sends a terminator terminated string &gt;-------------------------------
+/*
+ *  Doesn&apos;t return until entire string has been sent
+ *  By default terminator is &apos;\0&apos;
+ */
+bool Socket::sendString(const std::string&amp; str, byte terminator)
+<button id="Button" onClick="hideUnhideScope('31')">-</button>{<div id="31">
+  size_t bytesSent, bytesRemaining = str.size();
+  const byte* pBuf = &amp;(*str.begin());
+  while (bytesRemaining &gt; 0)
+  <button id="Button" onClick="hideUnhideScope('32')">-</button>{<div id="32">
+    bytesSent = ::send(socket_, pBuf, bytesRemaining, 0);
+    if (bytesSent == INVALID_SOCKET || bytesSent == 0)
+      return false;
+    bytesRemaining -= bytesSent;
+    pBuf += bytesSent;
+  </div>}
+  ::send(socket_, &amp;terminator, 1, 0);
+  return true;
+</div>}
+//----&lt; receives terminator terminated string &gt;------------------------------
+/*
+ * Doesn&apos;t return until a terminator byte as been received.
+ *
+ * ToDo:
+ * - needs reads of one byte to be replaced by bulk reads into a
+ *   stream buffer to improve efficiency.
+ * - That will require building a circular buffer.
+ * - performance seems acceptable, so won&apos;t do this now
+ */
+std::string Socket::recvString(byte terminator)
+<button id="Button" onClick="hideUnhideScope('33')">-</button>{<div id="33">
+  static const int buflen = 1;
+  char buffer[1];
+  std::string str;
+  while (true)
+  <button id="Button" onClick="hideUnhideScope('34')">-</button>{<div id="34">
+    iResult = ::recv(socket_, buffer, buflen, 0);
+    if (iResult == 0 || iResult == INVALID_SOCKET)
+      break;
+    if (buffer[0] == terminator)
+      break;
+    str += buffer[0];
+  </div>}
+  return str;
+</div>}
+//----&lt; attempt to send specified number of bytes, but may not send all &gt;----
+/*
+ * returns number of bytes actually sent
+ */
+size_t Socket::sendStream(size_t bytes, byte* pBuf)
+<button id="Button" onClick="hideUnhideScope('35')">-</button>{<div id="35">
+  return ::send(socket_, pBuf, bytes, 0);
+</div>}
+//----&lt; attempt to recv specified number of bytes, but may not send all &gt;----
+/*
+* returns number of bytes actually received
+*/
+size_t Socket::recvStream(size_t bytes, byte* pBuf)
+<button id="Button" onClick="hideUnhideScope('36')">-</button>{<div id="36">
+  return ::recv(socket_, pBuf, bytes, 0);
+</div>}
+//----&lt; returns bytes available in recv buffer &gt;-----------------------------
+
+size_t Socket::bytesWaiting()
+<button id="Button" onClick="hideUnhideScope('37')">-</button>{<div id="37">
+  unsigned long int ret;
+  ::ioctlsocket(socket_, FIONREAD, &amp;ret);
+  return (size_t)ret;
+</div>}
+//----&lt; waits for server data, checking every timeToCheck millisec &gt;---------
+
+bool Socket::waitForData(size_t timeToWait, size_t timeToCheck)
+<button id="Button" onClick="hideUnhideScope('38')">-</button>{<div id="38">
+  size_t MaxCount = timeToWait / timeToCheck;
+  static size_t count = 0;
+  while (bytesWaiting() == 0)
+  <button id="Button" onClick="hideUnhideScope('39')">-</button>{<div id="39">
+    if (++count &lt; MaxCount)
+      ::Sleep(timeToCheck);
+    else
+      return false;
+  </div>}
+  return true;
+</div>}
+/////////////////////////////////////////////////////////////////////////////
+// SocketConnector class members
+
+//----&lt; constructor inherits its base Socket&apos;s Win32 socket_ member &gt;--------
+
+SocketConnecter::SocketConnecter() : Socket()
+<button id="Button" onClick="hideUnhideScope('40')">-</button>{<div id="40">
+  hints.ai_family = AF_UNSPEC;
+</div>}
+//----&lt; move constructor transfers ownership of Win32 socket_ member &gt;-------
+
+SocketConnecter::SocketConnecter(SocketConnecter&amp;&amp; s) : Socket()
+<button id="Button" onClick="hideUnhideScope('41')">-</button>{<div id="41">
+  socket_ = s.socket_;
+  s.socket_ = INVALID_SOCKET;
+  ipver_ = s.ipver_;
+  hints.ai_family = s.hints.ai_family;
+  hints.ai_socktype = s.hints.ai_socktype;
+  hints.ai_protocol = s.hints.ai_protocol;
+</div>}
+//----&lt; move assignment transfers ownership of Win32 socket_ member &gt;--------
+
+SocketConnecter&amp; SocketConnecter::operator=(SocketConnecter&amp;&amp; s)
+<button id="Button" onClick="hideUnhideScope('42')">-</button>{<div id="42">
+  if (this == &amp;s) return *this;
+  socket_ = s.socket_;
+  s.socket_ = INVALID_SOCKET;
+  ipver_ = s.ipver_;
+  hints.ai_family = s.hints.ai_family;
+  hints.ai_socktype = s.hints.ai_socktype;
+  hints.ai_protocol = s.hints.ai_protocol;
+  return *this;
+</div>}
+//----&lt; destructor announces destruction if Verbose(true) &gt;------------------
+
+SocketConnecter::~SocketConnecter()
+<button id="Button" onClick="hideUnhideScope('43')">-</button>{<div id="43">
+  Show::write(&quot;\n  SocketConnecter instance destroyed&quot;);
+</div>}
+//----&lt; request to connect to ip and port &gt;----------------------------------
+
+bool SocketConnecter::connect(const std::string&amp; ip, size_t port)
+<button id="Button" onClick="hideUnhideScope('44')">-</button>{<div id="44">
+  size_t uport = htons((u_short)port);
+  std::string sPort = Conv&lt;size_t&gt;::toString(uport);
+
+  // Resolve the server address and port
+  const char* pTemp = ip.c_str();
+  iResult = getaddrinfo(pTemp, sPort.c_str(), &amp;hints, &amp;result);  // was DEFAULT_PORT
+  if (iResult != 0) <button id="Button" onClick="hideUnhideScope('45')">-</button>{<div id="45">
+    Show::write(&quot;\n\n  -- getaddrinfo failed with error: &quot; + Conv&lt;int&gt;::toString(iResult));
+    return false;
+  </div>}
+
+  // Attempt to connect to an address until one succeeds
+  for (ptr = result; ptr != NULL; ptr = ptr-&gt;ai_next) <button id="Button" onClick="hideUnhideScope('46')">-</button>{<div id="46">
+
+    char ipstr[INET6_ADDRSTRLEN];
+    void *addr;
+    char *ipver;
+
+    // get pointer to address - different fields in IPv4 and IPv6:
+
+    if (ptr-&gt;ai_family == AF_INET) <button id="Button" onClick="hideUnhideScope('47')">-</button>{<div id="47"> // IPv4
+      struct sockaddr_in *ipv4 = (struct sockaddr_in *)ptr-&gt;ai_addr;
+      addr = &amp;(ipv4-&gt;sin_addr);
+      ipver = &quot;IPv4&quot;;
+    </div>}
+    else <button id="Button" onClick="hideUnhideScope('48')">-</button>{<div id="48"> // IPv6
+      struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)ptr-&gt;ai_addr;
+      addr = &amp;(ipv6-&gt;sin6_addr);
+      ipver = &quot;IPv6&quot;;
+    </div>}
+
+    // convert the IP to a string and print it:
+    inet_ntop(ptr-&gt;ai_family, addr, ipstr, sizeof ipstr);
+    printf(&quot;\n  %s: %s&quot;, ipver, ipstr);
+
+    // Create a SOCKET for connecting to server
+    socket_ = socket(ptr-&gt;ai_family, ptr-&gt;ai_socktype, ptr-&gt;ai_protocol);
+    if (socket_ == INVALID_SOCKET) <button id="Button" onClick="hideUnhideScope('49')">-</button>{<div id="49">
+      int error = WSAGetLastError();
+      Show::write(&quot;\n\n  -- socket failed with error: &quot; + Conv&lt;int&gt;::toString(error));
+      return false;
+    </div>}
+
+    iResult = ::connect(socket_, ptr-&gt;ai_addr, (int)ptr-&gt;ai_addrlen);
+    if (iResult == SOCKET_ERROR) <button id="Button" onClick="hideUnhideScope('50')">-</button>{<div id="50">
+      socket_ = INVALID_SOCKET;
+      int error = WSAGetLastError();
+      Show::write(&quot;\n  WSAGetLastError returned &quot; + Conv&lt;int&gt;::toString(error));
+      continue;
+    </div>}
+    break;
+  </div>}
+
+  freeaddrinfo(result);
+
+  if (socket_ == INVALID_SOCKET) <button id="Button" onClick="hideUnhideScope('51')">-</button>{<div id="51">
+    int error = WSAGetLastError();
+    Show::write(&quot;\n\n  -- unable to connect to server, error = &quot; + Conv&lt;int&gt;::toString(error));
+    return false;
+  </div>}
+  return true;
+</div>}
+/////////////////////////////////////////////////////////////////////////////
+// SocketListener class members
+
+//----&lt; constructs SocketListener, specifying type of protocol to use &gt;------
+
+SocketListener::SocketListener(size_t port, IpVer ipv) : Socket(ipv), port_(port)
+<button id="Button" onClick="hideUnhideScope('52')">-</button>{<div id="52">
+  socket_ = INVALID_SOCKET;
+  ZeroMemory(&amp;hints, sizeof(hints));
+  if (ipv == Socket::IP6)
+    hints.ai_family = AF_INET6;       // use this if you want an IP6 address
+  else
+    hints.ai_family = AF_INET;        // this gives IP4 address
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_protocol = IPPROTO_TCP;
+  hints.ai_flags = AI_PASSIVE;
+</div>}
+//----&lt; move constructor transfers ownership of Win32 socket_ member &gt;-------
+
+SocketListener::SocketListener(SocketListener&amp;&amp; s) : Socket()
+<button id="Button" onClick="hideUnhideScope('53')">-</button>{<div id="53">
+  socket_ = s.socket_;
+  s.socket_ = INVALID_SOCKET;
+  ipver_ = s.ipver_;
+  hints.ai_family = s.hints.ai_family;
+  hints.ai_socktype = s.hints.ai_socktype;
+  hints.ai_protocol = s.hints.ai_protocol;
+  hints.ai_flags = s.hints.ai_flags;
+</div>}
+//----&lt; move assignment transfers ownership of Win32 socket_ member &gt;--------
+
+SocketListener&amp; SocketListener::operator=(SocketListener&amp;&amp; s)
+<button id="Button" onClick="hideUnhideScope('54')">-</button>{<div id="54">
+  if (this == &amp;s) return *this;
+  socket_ = s.socket_;
+  s.socket_ = INVALID_SOCKET;
+  ipver_ = s.ipver_;
+  hints.ai_family = s.hints.ai_family;
+  hints.ai_socktype = s.hints.ai_socktype;
+  hints.ai_protocol = s.hints.ai_protocol;
+  hints.ai_flags = s.hints.ai_flags;
+  return *this;
+</div>}
+//----&lt; destructor announces destruction if Verbal(true) &gt;-------------------
+
+SocketListener::~SocketListener()
+<button id="Button" onClick="hideUnhideScope('55')">-</button>{<div id="55">
+  Show::write(&quot;\n  SocketListener instance destroyed&quot;);
+</div>}
+//----&lt; binds SocketListener to a network adddress on local machine &gt;--------
+
+bool SocketListener::bind()
+<button id="Button" onClick="hideUnhideScope('56')">-</button>{<div id="56">
+  // Resolve the server address and port
+
+  size_t uport = ::htons((u_short)port_);
+  std::string sPort = Conv&lt;size_t&gt;::toString(uport);
+  iResult = getaddrinfo(NULL, sPort.c_str(), &amp;hints, &amp;result);
+  if (iResult != 0) <button id="Button" onClick="hideUnhideScope('57')">-</button>{<div id="57">
+    Show::write(&quot;\n\n  -- getaddrinfo failed with error: &quot; + Conv&lt;int&gt;::toString(iResult));
+    return false;
+  </div>}
+
+  // Iterate through all results and bind to first available
+
+  for (auto pResult = result; pResult != NULL; pResult = pResult-&gt;ai_next)
+  <button id="Button" onClick="hideUnhideScope('58')">-</button>{<div id="58">
+    // Create a SOCKET for connecting to server
+   
+    socket_ = socket(pResult-&gt;ai_family, pResult-&gt;ai_socktype, pResult-&gt;ai_protocol);
+    if (socket_ == INVALID_SOCKET) <button id="Button" onClick="hideUnhideScope('59')">-</button>{<div id="59">
+      int error = WSAGetLastError();
+      Show::write(&quot;\n\n  -- socket failed with error: &quot; + Conv&lt;int&gt;::toString(error));
+      continue;
+    </div>}
+    Show::write(&quot;\n  server created ListenSocket&quot;);
+
+    // Setup the TCP listening socket
+
+    iResult = ::bind(socket_, pResult-&gt;ai_addr, (int)pResult-&gt;ai_addrlen);
+    if (iResult == SOCKET_ERROR) <button id="Button" onClick="hideUnhideScope('60')">-</button>{<div id="60">
+      int error = WSAGetLastError();
+      Show::write(&quot;\n\n  -- bind failed with error: &quot; + Conv&lt;int&gt;::toString(error));
+      socket_ = INVALID_SOCKET;
+      continue;
+    </div>}
+    else
+    <button id="Button" onClick="hideUnhideScope('61')">-</button>{<div id="61">
+      break;
+    </div>}
+  </div>}
+  freeaddrinfo(result);
+  return true;
+</div>}
+//----&lt; put SocketListener in listen mode, doesn&apos;t block &gt;-------------------
+
+bool SocketListener::listen()
+<button id="Button" onClick="hideUnhideScope('62')">-</button>{<div id="62">
+  iResult = ::listen(socket_, SOMAXCONN);
+  if (iResult == SOCKET_ERROR) <button id="Button" onClick="hideUnhideScope('63')">-</button>{<div id="63">
+    int error = WSAGetLastError();
+    Show::write(&quot;\n\n  -- listen failed with error: &quot; + Conv&lt;int&gt;::toString(error));
+    socket_ = INVALID_SOCKET;
+    return false;
+  </div>}
+  Show::write(&quot;\n  server TCP listening socket setup complete&quot;);
+  return true;
+</div>}
+//----&lt; accepts incoming requrests to connect - blocking call &gt;--------------
+
+Socket SocketListener::accept()
+<button id="Button" onClick="hideUnhideScope('64')">-</button>{<div id="64">
+  ::SOCKET sock = ::accept(socket_, NULL, NULL);
+  Socket clientSocket = sock;    // uses Socket(::SOCKET) promotion ctor
+  if (!clientSocket.validState()) <button id="Button" onClick="hideUnhideScope('65')">-</button>{<div id="65">
+    acceptFailed_ = true;
+    int error = WSAGetLastError();
+    Show::write(&quot;\n\n  -- server accept failed with error: &quot; + Conv&lt;int&gt;::toString(error));
+    Show::write(
+      &quot;\n  -- this occurs when application shuts down while listener thread is blocked on Accept call&quot;
+    );
+    return clientSocket;
+  </div>}
+  return clientSocket;
+</div>}
+//----&lt; request SocketListener to stop accepting connections &gt;---------------
+
+void SocketListener::stop()
+<button id="Button" onClick="hideUnhideScope('66')">-</button>{<div id="66">
+  stop_.exchange(true);
+  sendString(&quot;Stop!&quot;);
+</div>}
+
+#ifdef TEST_SOCKETS
+
+//----&lt; test stub &gt;----------------------------------------------------------
+
+/////////////////////////////////////////////////////////////////////////////
+// Server&apos;s client handler class
+// - must be callable object so we&apos;ve built as a functor
+// - passed to SocketListener::start(CallObject&amp; co)
+// - Client handling thread starts by calling operator()
+
+class ClientHandler
+<button id="Button" onClick="hideUnhideScope('67')">-</button>{<div id="67">
+public:
+  void operator()(Socket&amp; socket_);
+  bool testStringHandling(Socket&amp; socket_);
+  bool testBufferHandling(Socket&amp; socket_);
+</div>};
+
+//----&lt; Client Handler thread starts running this function &gt;-----------------
+
+void clearBuffer(Socket::byte* buffer, size_t BufLen)
+<button id="Button" onClick="hideUnhideScope('68')">-</button>{<div id="68">
+  for (size_t i = 0; i &lt; BufLen; ++i)
+    buffer[i] = &apos;\0&apos;;
+</div>}
+
+void ClientHandler::operator()(Socket&amp; socket_)
+<button id="Button" onClick="hideUnhideScope('69')">-</button>{<div id="69">
+  while (true)
+  <button id="Button" onClick="hideUnhideScope('70')">-</button>{<div id="70">
+    // interpret test command
+
+    std::string command = socket_.recvString();
+    Show::write(&quot;\n  server rcvd command: &quot; + command);
+    if (command == &quot;Done&quot;)
+    <button id="Button" onClick="hideUnhideScope('71')">-</button>{<div id="71">
+      Show::write(&quot;\n  server sent : &quot; + command);
+      socket_.sendString(command);
+      break;
+    </div>}
+    if (command.size() == 0)
+    <button id="Button" onClick="hideUnhideScope('72')">-</button>{<div id="72">
+      Show::write(&quot;\n  client connection closed&quot;);
+      break;
+    </div>}
+    //Show::write(&quot;\n  server recvd: &quot; + command);
+
+    if (command == &quot;TEST_STRING_HANDLING&quot;)
+    <button id="Button" onClick="hideUnhideScope('73')">-</button>{<div id="73">
+      if (testStringHandling(socket_))
+        Show::write(&quot;\n  ----String Handling test passed\n&quot;);
+      else
+        Show::write(&quot;\n  ----String Handling test failed\n&quot;);
+      continue; // go back and get another command
+    </div>}
+    if (command == &quot;TEST_BUFFER_HANDLING&quot;)
+    <button id="Button" onClick="hideUnhideScope('74')">-</button>{<div id="74">
+      if (testBufferHandling(socket_))
+        Show::write(&quot;\n  ----Buffer Handling test passed\n&quot;);
+      else
+        Show::write(&quot;\n  ----Buffer Handling test failed\n&quot;);
+      continue;  // get another command
+    </div>}
+  </div>}
+
+  // we get here if command isn&apos;t requesting a test, e.g., &quot;TEST_STOP&quot;
+
+  Show::write(&quot;\n&quot;);
+  Show::write(&quot;\n  ClientHandler socket connection closing&quot;);
+  socket_.shutDown();
+  socket_.close();
+  Show::write(&quot;\n  ClientHandler thread terminating&quot;);
+</div>}
+
+//----&lt; test string handling &gt;-----------------------------------------------
+/*
+*   Creates strings, sends to server, then reads strings server echos back.
+*/
+bool ClientHandler::testStringHandling(Socket&amp; socket_)
+<button id="Button" onClick="hideUnhideScope('75')">-</button>{<div id="75">
+  Show::title(&quot;String handling test on server&quot;);
+
+  while (true)
+  <button id="Button" onClick="hideUnhideScope('76')">-</button>{<div id="76">
+    std::string str = socket_.recvString();
+    if (socket_ == INVALID_SOCKET)
+      return false;
+    if (str.size() &gt; 0)
+    <button id="Button" onClick="hideUnhideScope('77')">-</button>{<div id="77">
+      //Show::write(&quot;\n  bytes recvd at server: &quot; + toString(str.size() + 1));
+      Show::write(&quot;\n  server rcvd : &quot; + str);
+
+      if (socket_.sendString(str))
+      <button id="Button" onClick="hideUnhideScope('78')">-</button>{<div id="78">
+        Show::write(&quot;\n  server sent : &quot; + str);
+      </div>}
+      else
+      <button id="Button" onClick="hideUnhideScope('79')">-</button>{<div id="79">
+        return false;
+      </div>}
+      if (str == &quot;TEST_END&quot;)
+        break;
+    </div>}
+    else
+    <button id="Button" onClick="hideUnhideScope('80')">-</button>{<div id="80">
+      break;
+    </div>}
+  </div>}
+  //socket_.sendString(&quot;TEST_STRING_HANDLING_END&quot;);
+  Show::write(&quot;\n  End of string handling test&quot;);
+  return true;
+</div>}
+
+//----&lt; test buffer handling &gt;-----------------------------------------------
+/*
+*   Creates buffers, sends to server, then reads buffers server echos back.
+*/
+bool ClientHandler::testBufferHandling(Socket&amp; socket_)
+<button id="Button" onClick="hideUnhideScope('81')">-</button>{<div id="81">
+  Show::title(&quot;Buffer handling test on server&quot;);
+  const size_t BufLen = 20;
+  Socket::byte buffer[BufLen];
+  bool ok;
+
+  while (true)
+  <button id="Button" onClick="hideUnhideScope('82')">-</button>{<div id="82">
+    ok = socket_.recv(BufLen, buffer);
+    if (socket_ == INVALID_SOCKET)
+      return false;
+    if (ok)
+    <button id="Button" onClick="hideUnhideScope('83')">-</button>{<div id="83">
+      std::string temp;
+      for (size_t i = 0; i &lt; BufLen; ++i)
+        temp += buffer[i];
+      //Show::write(&quot;\n  bytes recvd at server: &quot; + toString(BufLen));
+      Show::write(&quot;\n  server rcvd : &quot; + temp);
+
+      if (socket_.send(BufLen, buffer))
+      <button id="Button" onClick="hideUnhideScope('84')">-</button>{<div id="84">
+        Show::write(&quot;\n  server sent : &quot; + std::string(buffer));
+      </div>}
+      else
+      <button id="Button" onClick="hideUnhideScope('85')">-</button>{<div id="85">
+        Show::write(&quot;\n  server send failed&quot;);
+        return false;
+      </div>}
+      if (temp.find(&quot;TEST_END&quot;) != std::string::npos)
+        break;
+    </div>}
+    else
+    <button id="Button" onClick="hideUnhideScope('86')">-</button>{<div id="86">
+      break;
+    </div>}
+  </div>}
+  Show::write(&quot;\n  End of buffer handling test&quot;);
+  return true;
+</div>}
+
+//----&lt; test string handling - server echos back client sent string &gt;--------
+
+void clientTestStringHandling(Socket&amp; si)
+<button id="Button" onClick="hideUnhideScope('87')">-</button>{<div id="87">
+  std::string command = &quot;TEST_STRING_HANDLING&quot;;
+  si.sendString(command);
+  Show::write(&quot;\n  client sent : &quot; + command);
+
+  for (size_t i = 0; i &lt; 5; ++i)
+  <button id="Button" onClick="hideUnhideScope('88')">-</button>{<div id="88">
+    std::string text = &quot;Hello World &quot; + std::string(&quot;#&quot;) + Conv&lt;size_t&gt;::toString(i + 1);
+    si.sendString(text);
+    Show::write(&quot;\n  client sent : &quot; + text);
+  </div>}
+  command = &quot;TEST_END&quot;;
+  si.sendString(command);
+  Show::write(&quot;\n  client sent : &quot; + command);
+
+  while (true)
+  <button id="Button" onClick="hideUnhideScope('89')">-</button>{<div id="89">
+    std::string str = si.recvString();
+    if (str.size() == 0)
+    <button id="Button" onClick="hideUnhideScope('90')">-</button>{<div id="90">
+      Show::write(&quot;\n  client detected closed connection&quot;);
+      break;
+    </div>}
+    Show::write(&quot;\n  client recvd: &quot; + str);
+    if (str == &quot;TEST_END&quot;)
+    <button id="Button" onClick="hideUnhideScope('91')">-</button>{<div id="91">
+      Show::write(&quot;\n  End of string handling test&quot;);
+      break;
+    </div>}
+  </div>}
+</div>}
+//----&lt; test buffer handling - server echos back client sent buffer &gt;--------
+
+void clientTestBufferHandling(Socket&amp; si)
+<button id="Button" onClick="hideUnhideScope('92')">-</button>{<div id="92">
+  std::string command = &quot;TEST_BUFFER_HANDLING&quot;;
+  si.sendString(command);
+  Show::write(&quot;\n  client sent : &quot; + command);
+
+  const int BufLen = 20;
+  Socket::byte buffer[BufLen];
+
+  for (size_t i = 0; i &lt; 5; ++i)
+  <button id="Button" onClick="hideUnhideScope('93')">-</button>{<div id="93">
+    std::string text = &quot;Hello World &quot; + std::string(&quot;#&quot;) + Conv&lt;size_t&gt;::toString(i + 1);
+    for (size_t i = 0; i &lt; BufLen; ++i)
+    <button id="Button" onClick="hideUnhideScope('94')">-</button>{<div id="94">
+      if (i &lt; text.size())
+        buffer[i] = text[i];
+      else
+        buffer[i] = &apos;.&apos;;
+    </div>}
+    buffer[BufLen - 1] = &apos;\0&apos;;
+    si.send(BufLen, buffer);
+    Show::write(&quot;\n  client sent : &quot; + std::string(buffer));
+  </div>}
+  std::string text = &quot;TEST_END&quot;;
+  for (size_t i = 0; i &lt; BufLen; ++i)
+  <button id="Button" onClick="hideUnhideScope('95')">-</button>{<div id="95">
+    if (i &lt; text.size())
+      buffer[i] = text[i];
+    else
+      buffer[i] = &apos;.&apos;;
+  </div>}
+  buffer[BufLen - 1] = &apos;\0&apos;;
+  si.send(BufLen, buffer);
+  Show::write(&quot;\n  client sent : &quot; + std::string(buffer));
+
+  bool ok;
+  while (true)
+  <button id="Button" onClick="hideUnhideScope('96')">-</button>{<div id="96">
+    ok = si.recv(BufLen, buffer);
+    if (!ok)
+    <button id="Button" onClick="hideUnhideScope('97')">-</button>{<div id="97">
+      Show::write(&quot;\n  client unable to receive&quot;);
+      break;
+    </div>}
+    std::string str(buffer);
+    if (str.size() == 0)
+    <button id="Button" onClick="hideUnhideScope('98')">-</button>{<div id="98">
+      Show::write(&quot;\n  client detected closed connection&quot;);
+      break;
+    </div>}
+    Show::write(&quot;\n  client rcvd : &quot; + str);
+    if (str.find(&quot;TEST_END&quot;) != std::string::npos)
+    <button id="Button" onClick="hideUnhideScope('99')">-</button>{<div id="99">
+      Show::write(&quot;\n  End of buffer handling test&quot;);
+      break;
+    </div>}
+  </div>}
+</div>}
+//----&lt; demonstration &gt;------------------------------------------------------
+
+int main(int argc, char* argv[])
+<button id="Button" onClick="hideUnhideScope('100')">-</button>{<div id="100">
+  Show::attach(&amp;std::cout);
+  Show::start();
+  Show::title(&quot;Testing Sockets&quot;, &apos;=&apos;);
+
+  try
+  <button id="Button" onClick="hideUnhideScope('101')">-</button>{<div id="101">
+    SocketSystem ss;
+    SocketConnecter si;
+    SocketListener sl(9070, Socket::IP6);
+    ClientHandler cp;
+    sl.start(cp);
+    while (!si.connect(&quot;localhost&quot;, 9070))
+    <button id="Button" onClick="hideUnhideScope('102')">-</button>{<div id="102">
+      Show::write(&quot;\n  client waiting to connect&quot;);
+      ::Sleep(100);
+    </div>}
+
+    Show::title(&quot;Starting string test on client&quot;);
+    clientTestStringHandling(si);
+    Show::title(&quot;Starting buffer test on client&quot;);
+    clientTestBufferHandling(si);
+
+    si.sendString(&quot;TEST_STOP&quot;);
+
+    Show::write(&quot;\n\n  client calling send shutdown\n&quot;);
+    si.shutDownSend();
+    sl.stop();
+  </div>}
+  catch (std::exception&amp; ex)
+  <button id="Button" onClick="hideUnhideScope('103')">-</button>{<div id="103">
+    std::cout &lt;&lt; &quot;\n  Exception caught:&quot;;
+    std::cout &lt;&lt; &quot;\n  &quot; &lt;&lt; ex.what() &lt;&lt; &quot;\n\n&quot;;
+  </div>}
+</div>}
+
+#endif
+</pre>
+</body>
+</html>

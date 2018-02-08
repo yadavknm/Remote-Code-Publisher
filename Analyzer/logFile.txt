@@ -1,0 +1,104 @@
+
+                                             CodeAnalysis
+    ==============================================================================================
+     Sat Mar 18 19:32:27 2017
+     Path: "F:\SU\Spring 2017\OOD\Code\Project2_OOD\CodeAnalyzerEx\Analyzer"
+     Args: *.h, *.cpp, *.cs, /m, /r, /f
+                                                                               
+           Code Metrics - Start Line, Size (lines/code), and Complexity (number of scopes)
+    ==============================================================================================
+
+                 file name        type                               name    line    size    cplx
+    -----------------------  ----------  ---------------------------------  ------  ------  ------
+                             namespace                   Global Namespace       1       1     129
+
+                 file name        type                               name    line    size    cplx
+    -----------------------  ----------  ---------------------------------  ------  ------  ------
+                 DepAnal.h   namespace                       CodeAnalysis      23     138      22
+                 DepAnal.h       class                           TypeAnal      25      21      18
+                 DepAnal.h    function                           TypeAnal      51       2       2
+                 DepAnal.h      lambda                                 []      51       1       1
+                 DepAnal.h    function                                DFS      69      24       4
+                 DepAnal.h    function                         doTypeAnal      95      18       2
+                 DepAnal.h    function                            ASTDisp     115      46       9
+                 DepAnal.h    function                          doDisplay      56      11       3
+
+                 file name        type                               name    line    size    cplx
+    -----------------------  ----------  ---------------------------------  ------  ------  ------
+               DepAnal.cpp    function                               main       8       3       1
+
+                 file name        type                               name    line    size    cplx
+    -----------------------  ----------  ---------------------------------  ------  ------  ------
+               Executive.h   namespace                       CodeAnalysis      91     106      88
+               Executive.h       class                        AnalFileMgr      99      22       7
+               Executive.h       class              CodeAnalysisExecutive     126      70      80
+
+                 file name        type                               name    line    size    cplx
+    -----------------------  ----------  ---------------------------------  ------  ------  ------
+             Executive.cpp    function                        AnalFileMgr      61       2       1
+             Executive.cpp    function                               file      67       7       1
+             Executive.cpp    function                                dir      77       4       1
+             Executive.cpp    function                               done      84       2       1
+             Executive.cpp    function                           numFiles      89       3       1
+             Executive.cpp    function                            numDirs      95       3       1
+             Executive.cpp    function              CodeAnalysisExecutive     115       8       2
+             Executive.cpp    function             ~CodeAnalysisExecutive     126      14       1
+             Executive.cpp    function           showCommandLineArguments     167       9       1
+             Executive.cpp    function                 ProcessCommandLine     185      34       7
+             Executive.cpp    function                    getAnalysisPath     222       3       1
+             Executive.cpp    function                         getFileMap     230       3       1
+             Executive.cpp    function                     getSourceFiles     240       8       1
+             Executive.cpp    function                     cppHeaderFiles     259      12       3
+             Executive.cpp    function                     cppImplemFiles     274      12       3
+             Executive.cpp    function                        csharpFiles     289      12       3
+             Executive.cpp    function                          fileSLOCs     303       4       1
+             Executive.cpp    function                           numFiles     310       3       1
+             Executive.cpp    function                            numDirs     316       3       1
+             Executive.cpp    function                       showActivity     322      11       3
+             Executive.cpp    function                             string     324       2       1
+             Executive.cpp    function                      clearActivity     335       6       2
+             Executive.cpp    function                        setLanguage     357       7       1
+             Executive.cpp    function                  processSourceCode     366      95       8
+             Executive.cpp    function                 complexityAnalysis     464       4       1
+             Executive.cpp    function                      displayHeader     505      20       1
+             Executive.cpp    function                 displayMetricsLine     528      18       2
+             Executive.cpp    function                             string     530       2       1
+             Executive.cpp    function                           showData     549       6       1
+             Executive.cpp    function                   displayDataLines     557      24       5
+             Executive.cpp    function                     displayMetrics     587      39       4
+             Executive.cpp      lambda                 [&](ASTNode*pNode)     595      10       1
+             Executive.cpp    function                     displayMetrics     629       4       1
+             Executive.cpp    function                         displayAST     660       7       1
+             Executive.cpp    function               displayMetricSummary     670      34       6
+             Executive.cpp      lambda                 [&](ASTNode*pNode)     679       2       1
+             Executive.cpp    function                       displaySlocs     727      25       4
+             Executive.cpp    function           dispatchOptionalDisplays     755      22       3
+             Executive.cpp    function                    setDisplayModes     780      25       4
+             Executive.cpp    function                        startLogger     808       9       1
+             Executive.cpp    function                        flushLogger     819       5       1
+             Executive.cpp    function                         stopLogger     826       8       1
+             Executive.cpp    function                         setLogFile     840      13       2
+             Executive.cpp    function                         systemTime     854       9       1
+             Executive.cpp    function                          showUsage     143      21       1
+             Executive.cpp    function                           contains     251       5       1
+             Executive.cpp      struct                           CompExts     474       6       2
+             Executive.cpp    function                         operator()     476       3       1
+             Executive.cpp    function                          removeExt     486       4       1
+             Executive.cpp      struct                          CompNames     492      10       2
+             Executive.cpp    function                         operator()     494       7       1
+             Executive.cpp    function                           TreeWalk     637      20       3
+             Executive.cpp      struct                          compFiles     707      17       3
+             Executive.cpp    function               ChangeFirstCharOfExt     710       8       1
+             Executive.cpp    function                         operator()     720       3       1
+             Executive.cpp      lambda                                [])     868      54       4
+
+                          Functions Exceeding Metric Limits and Public Data
+    ==============================================================================================
+                 file name        type                               name    line    size    cplx
+    -----------------------  ----------  ---------------------------------  ------  ------  ------
+             Executive.cpp    function                  processSourceCode     366      95       8
+
+
+
+    searched     4 dirs
+   processed     4 files
